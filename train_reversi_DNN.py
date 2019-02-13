@@ -161,6 +161,7 @@ def main():
     n_actions = SIZE * SIZE # 行動数はSIZE*SIZE（ボードのどこに石を置くか）
     n_nodes = 256 # 中間層のノード数
     q_func = QFunction(obs_size, n_actions, n_nodes)
+    q_func.to_gpu()
 
     #GPUおまじない
     '''
