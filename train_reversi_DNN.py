@@ -161,6 +161,12 @@ def main():
     n_nodes = 256 # 中間層のノード数
     q_func = QFunction(obs_size, n_actions, n_nodes)
 
+    #GPUおまじない
+    gpu_device = 0
+    cuda.get_device(gpu_device).use()
+    model.to_gpu(gpu_device)
+    xp = cuda.cupy
+
     # optimizerの設定
     optimizer = chainer.optimizers.Adam(eps=1e-2)
     optimizer.setup(q_func)
@@ -174,10 +180,10 @@ def main():
     replay_buffer_w = chainerrl.replay_buffer.ReplayBuffer(capacity=10 ** 6)
     # エージェント．黒石用・白石用のエージェントを別々に学習する．DQNを利用．バッチサイズを少し大きめに設定
     agent_black = chainerrl.agents.DQN(
-        q_func, optimizer, replay_buffer_b, gamma, explorer, gpu=None,
+        q_func, optimizer, replay_buffer_b, gamma, explorer, gpu=1,
         replay_start_size=1000, minibatch_size=128, update_interval=1, target_update_interval=1000)
     agent_white = chainerrl.agents.DQN(
-        q_func, optimizer, replay_buffer_w, gamma, explorer, gpu=None,
+        q_func, optimizer, replay_buffer_w, gamma, explorer, gpu=1,
         replay_start_size=1000, minibatch_size=128, update_interval=1, target_update_interval=1000)
     agents = ['', agent_black, agent_white]
 
