@@ -5,6 +5,7 @@ Copyright(c) 2018 Koji Makino and Hiromitsu Nishizaki All Rights Reserved.
 """
 from __future__ import print_function
 import chainer
+from chainer import cuda
 import chainer.functions as F
 import chainer.links as L
 import chainerrl
