@@ -165,7 +165,7 @@ def main():
     #GPUおまじない
     gpu_device = 0
     cuda.get_device(gpu_device).use()
-    model.to_gpu(gpu_device)
+    board.to_gpu(gpu_device)
     xp = cuda.cupy
 
     # optimizerの設定
