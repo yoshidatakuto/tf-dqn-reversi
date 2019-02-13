@@ -15,7 +15,7 @@ import random
 import copy
 
 # 定数定義 #
-SIZE = 4   # ボードサイズ SIZE*SIZE
+SIZE = 8   # ボードサイズ SIZE*SIZE
 NONE = 0   # ボードのある座標にある石：なし
 BLACK = 1  # ボードのある座標にある石：黒
 WHITE = 2  # ボードのある座標にある石：白
@@ -40,15 +40,15 @@ class QFunction(chainer.Chain):
     def __call__(self, x):
         h = F.relu(self.l1(x))
         h = F.relu(self.l2(h))
-        h = F.relu(self.l3(h))        
+        h = F.relu(self.l3(h))
         return chainerrl.action_value.DiscreteActionValue(self.l4(h))
 
 ### リバーシボードクラス ###
-class Board():    
+class Board():
 
     # インスタンス（最初はボードの初期化）
     def __init__(self):
-        self.board_reset()        
+        self.board_reset()
 
     # ボードの初期化
     def board_reset(self):
@@ -73,7 +73,7 @@ class Board():
             self.board[pos[0], pos[1]] = self.turn
             self.do_reverse(pos) # リバース
             return True
-        else:           
+        else:
             return False
 
     # ターンチェンジ
@@ -138,12 +138,12 @@ class Board():
                 j += dj # j座標（横）をずらす
                 if 0 <= i < SIZE and 0 <= j < SIZE and self.board[i,j] == opp: #盤面に収まっており，かつ相手の石だったら
                     flag = True
-                elif not(0 <= i < SIZE and 0 <= j < SIZE) or (flag == False and self.board[i,j] != opp) or self.board[i,j] == NONE:                
+                elif not(0 <= i < SIZE and 0 <= j < SIZE) or (flag == False and self.board[i,j] != opp) or self.board[i,j] == NONE:
                     break
-                elif self.board[i,j] == self.turn and flag == True: # 自分と同じ色の石                    
+                elif self.board[i,j] == self.turn and flag == True: # 自分と同じ色の石
                     return True
         return False
-        
+
     # ゲーム終了チェック
     def end_check(self):
         if np.count_nonzero(self.board) == SIZE * SIZE or self.pss == 2: # ボードに全て石が埋まるか，双方がパスがしたら
@@ -151,16 +151,16 @@ class Board():
             self.nofb = len(np.where(self.board==BLACK)[0])
             self.nofw = len(np.where(self.board==WHITE)[0])
             self.winner = BLACK if len(np.where(self.board==BLACK)[0]) > len(np.where(self.board==WHITE)[0]) else WHITE
-    
-# メイン関数            
+
+# メイン関数
 def main():
-    board = Board() # ボード初期化    
-    
+    board = Board() # ボード初期化
+
     obs_size = SIZE * SIZE # ボードサイズ（=NN入力次元数）
     n_actions = SIZE * SIZE # 行動数はSIZE*SIZE（ボードのどこに石を置くか）
     n_nodes = 256 # 中間層のノード数
     q_func = QFunction(obs_size, n_actions, n_nodes)
-    
+
     # optimizerの設定
     optimizer = chainer.optimizers.Adam(eps=1e-2)
     optimizer.setup(q_func)
@@ -174,17 +174,17 @@ def main():
     replay_buffer_w = chainerrl.replay_buffer.ReplayBuffer(capacity=10 ** 6)
     # エージェント．黒石用・白石用のエージェントを別々に学習する．DQNを利用．バッチサイズを少し大きめに設定
     agent_black = chainerrl.agents.DQN(
-        q_func, optimizer, replay_buffer_b, gamma, explorer, 
+        q_func, optimizer, replay_buffer_b, gamma, explorer, gpu=None,
         replay_start_size=1000, minibatch_size=128, update_interval=1, target_update_interval=1000)
     agent_white = chainerrl.agents.DQN(
-        q_func, optimizer, replay_buffer_w, gamma, explorer,
+        q_func, optimizer, replay_buffer_w, gamma, explorer, gpu=None,
         replay_start_size=1000, minibatch_size=128, update_interval=1, target_update_interval=1000)
     agents = ['', agent_black, agent_white]
-    
+
     n_episodes = 20000 # 学習ゲーム回数
-    win = 0 # 黒の勝利数    
+    win = 0 # 黒の勝利数
     lose = 0 # 黒の敗北数
-    draw = 0 # 引き分け    
+    draw = 0 # 引き分け
 
     # ゲーム開始（エピソードの繰り返し実行）
     for i in range(1, n_episodes + 1):
@@ -203,50 +203,50 @@ def main():
                 while True: # 置ける場所が見つかるまで繰り返す
                     pos = agents[board.turn].act_and_train(boardcopy, rewards[board.turn])
                     pos = divmod(pos, SIZE) # 座標を2次元（i,j）に変換
-                    if board.is_available(pos):                        
+                    if board.is_available(pos):
                         break
                     else:
-                        rewards[board.turn] = REWARD_LOSE # 石が置けない場所であれば負の報酬                                        
+                        rewards[board.turn] = REWARD_LOSE # 石が置けない場所であれば負の報酬
                 # 石を配置
                 board.agent_action(pos)
                 if board.pss == 1: # 石が配置できた場合にはパスフラグをリセットしておく（双方が連続パスするとゲーム終了する）
-                    board.pss = 0 
+                    board.pss = 0
 
             # ゲーム時の処理
-            if board.game_end:                                
+            if board.game_end:
                 if board.winner == BLACK:
                     rewards[BLACK] = REWARD_WIN  # 黒の勝ち報酬
                     rewards[WHITE] = REWARD_LOSE # 白の負け報酬
                     win += 1
                 elif board.winner == 0:
-                    draw += 1                    
+                    draw += 1
                 else:
                     rewards[BLACK] = REWARD_LOSE
                     rewards[WHITE] = REWARD_WIN
-                    lose += 1                    
-                #エピソードを終了して学習                
+                    lose += 1
+                #エピソードを終了して学習
                 boardcopy = np.reshape(board.board.copy(), (-1,))
                 # 勝者のエージェントの学習
                 agents[board.turn].stop_episode_and_train(boardcopy, rewards[board.turn], True)
                 board.change_turn()
                 # 敗者のエージェントの学習
-                agents[board.turn].stop_episode_and_train(boardcopy, rewards[board.turn], True) 
-            else:                
+                agents[board.turn].stop_episode_and_train(boardcopy, rewards[board.turn], True)
+            else:
                 board.change_turn()
 
         # 学習の進捗表示 (100エピソードごと)
-        if i % 100 == 0:            
+        if i % 100 == 0:
             print('==== Episode {} : black win {}, black lose {}, draw {} ===='.format(i, win, lose, draw)) # 勝敗数は黒石基準
             print('<BLACK> statistics: {}, epsilon {}'.format(agent_black.get_statistics(), agent_black.explorer.epsilon))
             print('<WHITE> statistics: {}, epsilon {}'.format(agent_white.get_statistics(), agent_white.explorer.epsilon))
-            # カウンタ変数の初期化            
+            # カウンタ変数の初期化
             win = 0
             lose = 0
-            draw = 0            
+            draw = 0
 
         if i % 1000 == 0: # 1000エピソードごとにモデルを保存する
-            agent_black.save("agent_black_" + str(i))
-            agent_white.save("agent_white_" + str(i))
+            agent_black.save("size" + str(SIZE) + "/" + "agent_black_" + str(i))
+            agent_white.save("size" + str(SIZE) + "/" + "agent_white_" + str(i))
 
 if __name__ == '__main__':
     main()
